@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClearSky — Move-In Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F7F5;
+    --surface: #FFFFFF;
+    --surface2: #F0F0EE;
+    --border: #E0E0DC;
+    --text: #111111;
+    --muted: #999;
+    --muted2: #666;
+    --green: #16A34A;
+    --green-bg: #F0FDF4;
+    --green-border: #BBF7D0;
+    --sans: 'Montserrat', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header {
+    background: #111;
+    padding: 0 40px;
+    height: 66px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo { display: flex; flex-direction: column; gap: 5px; }
+  .logo-wordmark { display: flex; align-items: center; line-height: 1; }
+  .logo-clear { font-size: 22px; font-weight: 300; letter-spacing: 0.04em; color: #fff; }
+  .logo-sky { font-size: 22px; font-weight: 300; letter-spacing: 0.04em; color: #111; background: #fff; padding: 1px 6px 2px; margin-left: 2px; }
+  .logo-sub { font-size: 8.5px; font-weight: 300; letter-spacing: 0.32em; color: #888; text-transform: uppercase; }
+  .hdr-right { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
+  .hdr-counter { font-size: 10px; font-weight: 300; letter-spacing: 0.22em; color: #888; text-transform: uppercase; }
+  .hdr-bar { width: 180px; height: 1.5px; background: #444; }
+  .hdr-bar-fill { height: 100%; background: #fff; transition: width 0.4s ease; width: 0%; }
+
+  .main { padding: 32px 40px; }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+  .stat-card { background: var(--surface); padding: 16px 20px; }
+  .stat-lbl { font-size: 8.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; font-weight: 500; }
+  .stat-val { font-size: 26px; font-weight: 200; letter-spacing: -0.02em; color: var(--text); }
+
+  /* ADD ROW */
+  .add-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    margin-bottom: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px;
+    flex-wrap: wrap;
+  }
+  .add-field { display: flex; flex-direction: column; gap: 5px; }
+  .add-field label { font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted2); }
+  .add-field input, .add-field select {
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 300;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .add-field input:focus, .add-field select:focus { border-color: var(--text); }
+  .add-field input::placeholder { color: #bbb; }
+  .add-field.name-field { flex: 2; min-width: 220px; position: relative; }
+  .add-field.date-field { flex: 1; min-width: 140px; }
+  .add-field.size-field { flex: 1; min-width: 160px; }
+
+  /* AUTOCOMPLETE */
+  .autocomplete-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: none;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+  }
+  .autocomplete-list.open { display: block; }
+  .ac-item {
+    padding: 9px 12px;
+    font-size: 12px;
+    font-weight: 300;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:hover, .ac-item.active { background: var(--surface2); }
+  .ac-item mark { background: none; color: var(--green); font-weight: 600; }
+
+  .add-btn {
+    padding: 8px 20px;
+    background: #111;
+    color: #fff;
+    border: none;
+    font-family: var(--sans);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+    align-self: flex-end;
+    height: 36px;
+  }
+  .add-btn:hover { opacity: 0.82; }
+
+  /* CONTROLS */
+  .controls-row { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .search-wrap { flex: 1; min-width: 200px; }
+  .search-wrap input {
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 300;
+    letter-spacing: 0.05em;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    width: 100%;
+    outline: none;
+  }
+  .search-wrap input:focus { border-color: var(--text); }
+  .search-wrap input::placeholder { color: #bbb; }
+
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    background: transparent;
+    font-family: var(--sans);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .chip:hover { border-color: var(--text); color: var(--text); }
+  .chip.active { background: #111; color: #fff; border-color: #111; }
+
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    text-align: left;
+    padding: 10px 16px;
+    font-size: 8.5px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    white-space: nowrap;
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:hover td { background: var(--surface2); }
+  tbody td { padding: 14px 16px; font-size: 13px; font-weight: 300; vertical-align: middle; background: var(--surface); }
+
+  .unit-name { font-weight: 500; font-size: 14px; color: var(--text); }
+  .badge { display: inline-block; padding: 3px 9px; font-size: 9px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; border: 1px solid; }
+  .badge-studio { border-color: #7C3AED; color: #7C3AED; background: #F5F3FF; }
+  .badge-1bd    { border-color: #1D4ED8; color: #1D4ED8; background: #EFF6FF; }
+  .badge-2bd    { border-color: #059669; color: #059669; background: #ECFDF5; }
+  .badge-3bd    { border-color: #D97706; color: #D97706; background: #FFFBEB; }
+
+  .movein { font-size: 13px; font-weight: 600; color: var(--green); }
+  .tcol { font-size: 12px; color: var(--muted); }
+  .lcol { font-size: 13px; font-weight: 300; }
+
+  .copy-btn {
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    background: transparent;
+    font-family: var(--sans);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    cursor: pointer;
+    transition: all 0.12s;
+    white-space: nowrap;
+  }
+  .copy-btn:hover { border-color: var(--text); color: var(--text); }
+  .copy-btn.ok { border-color: var(--green); color: var(--green); }
+
+  .del-btn { background: none; border: none; color: #ccc; cursor: pointer; font-size: 16px; padding: 0 4px; transition: color 0.12s; line-height: 1; }
+  .del-btn:hover { color: #ef4444; }
+
+  .empty { text-align: center; padding: 60px 20px; }
+  .empty p { font-size: 12px; color: var(--muted); letter-spacing: 0.08em; font-weight: 300; }
+
+  @media (max-width: 700px) {
+    .main { padding: 20px; }
+    header { padding: 0 20px; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-wordmark">
+      <span class="logo-clear">CLEAR</span><span class="logo-sky">SKY</span>
+    </div>
+    <div class="logo-sub">I N V E S T M E N T &nbsp; G R O U P</div>
+  </div>
+  <div class="hdr-right">
+    <div class="hdr-counter" id="hdr-counter">0 / 0 complete</div>
+    <div class="hdr-bar"><div class="hdr-bar-fill" id="hdr-fill"></div></div>
+  </div>
+</header>
+
+<div class="main">
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-lbl">Total</div><div class="stat-val" id="st-total">0</div></div>
+    <div class="stat-card"><div class="stat-lbl">Studio</div><div class="stat-val" id="st-studio">0</div></div>
+    <div class="stat-card"><div class="stat-lbl">1 Bed</div><div class="stat-val" id="st-1bd">0</div></div>
+    <div class="stat-card"><div class="stat-lbl">2–3 Bed</div><div class="stat-val" id="st-2bd">0</div></div>
+  </div>
+
+  <div class="add-row">
+    <div class="add-field name-field">
+      <label>Unit name</label>
+      <input type="text" id="add-name" placeholder="Start typing..." autocomplete="off">
+      <div class="autocomplete-list" id="ac-list"></div>
+    </div>
+    <div class="add-field date-field">
+      <label>Lease end date</label>
+      <input type="date" id="add-date">
+    </div>
+    <div class="add-field size-field">
+      <label>Size</label>
+      <select id="add-size">
+        <option value="0-1">Studio (0bd/1ba) · 2 days</option>
+        <option value="1-1">1 Bed / 1 Bath · 2 days</option>
+        <option value="2-1">2 Bed / 1 Bath · 3 days</option>
+        <option value="2-2">2 Bed / 2 Bath · 3 days</option>
+        <option value="3-1">3 Bed / 1 Bath · 4 days</option>
+        <option value="3-2">3 Bed / 2 Bath · 4 days</option>
+        <option value="3-3">3 Bed / 3 Bath · 5 days</option>
+      </select>
+    </div>
+    <button class="add-btn" onclick="addUnit()">Add unit →</button>
+  </div>
+
+  <div class="controls-row">
+    <div class="search-wrap">
+      <input type="text" id="search-input" placeholder="Search units in table..." oninput="renderTable()">
+    </div>
+    <div class="chips">
+      <button class="chip active" data-f="all" onclick="setFilter(this)">All</button>
+      <button class="chip" data-f="0" onclick="setFilter(this)">Studio</button>
+      <button class="chip" data-f="1" onclick="setFilter(this)">1 Bed</button>
+      <button class="chip" data-f="2" onclick="setFilter(this)">2 Bed</button>
+      <button class="chip" data-f="3" onclick="setFilter(this)">3 Bed</button>
+    </div>
+  </div>
+
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Unit</th>
+          <th>Size</th>
+          <th>Lease end</th>
+          <th>Turnover</th>
+          <th>Move-in date</th>
+          <th></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbl-body"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const ALL_UNITS = [
+  "1 City Point - 19J","1 City Point - 22J","1 City Point - 23C","1 City Point - 24B",
+  "1 City Point - 24C","1 City Point - 29B","1 City Point - 30A","1 City Point - 31A",
+  "1 City Point - 31F","1 City Point - 33A","1 City Point - 33B","1 City Point - 35B",
+  "1 City Point - 37L","1 City Point - 38B","1 City Point - 38H","1 City Point - 46F",
+  "1 City Point - 48C","1 City Point - 48G","1 City Point - 53B","1 City Point - 53J",
+  "1 City Point - 56C","1 City Point - 57D","1 City Point - 57G","1 City Point - 59D",
+  "1 City Point - 59J","1 City Point - 63D","1 City Point - 65J","1 City Point - 66B",
+  "1 City Point - 66G","1 City Point - 67D","1 City Point - 67E","1 City Point - 67G",
+  "1 City Point - 67J","1 City Point - 24A","1 City Point - 48H","1 City Point - 57H",
+  "1 Wall Street Court, Unit 201","100 Norfolk - 5A","100 Norfolk - 7A",
+  "1030 Lorimer, 2","110 Charlton St, 15G","110 N 1st St, apt 2C","12 Broome St, 2A",
+  "122 Elizabeth","122 Elizabeth - 7B","122 West St, 3O","125 N 10th St - SPHF",
+  "149 Sullivan Street - 2F","149 Sullivan Street - 3B","149 Sullivan Street - 3E",
+  "149 Sullivan Street - 3F","149 Sullivan Street - 4A","149 Sullivan Street - 5A",
+  "149 Sullivan Street - 6A","150 South 1st Street, 2K","155 West 68th Street, 617",
+  "158 India St 3","164 Bank Street - 3A","170 North 11th St, 5F",
+  "170 North 11th Street, 3A","170 North 11th Street, 3D","171 North 1st Street - 2A",
+  "173 Bleecker Street - 10","174 North 6th St, 3B","175 Bleecker Street - 10",
+  "175 West 95th Street 9J","177 Thompson - 18","184 Kent - A101","184 Kent - A203",
+  "184 Kent - A303","184 Kent - A306","184 Kent - A308","184 Kent - A310",
+  "184 Kent - A317","184 Kent - A508","184 Kent - A509","184 Kent - A608",
+  "184 Kent - A609","184 Kent - A612","184 Kent - A704","184 Kent - B104",
+  "184 Kent - B207","184 Kent - B313","184 Kent - B314","184 Kent - B415",
+  "184 Kent - B501","184 Kent - B502","184 Kent - B504","184 Kent - B510",
+  "184 Kent - B514","184 Kent - B602","184 Kent - B605","184 Kent - B607",
+  "184 Kent - B615","184 Kent - C102","184 Kent - C105","184 Kent - C303",
+  "184 Kent - C304","184 Kent - C306","184 Kent - C405","184 Kent - C408",
+  "184 Kent - C409","184 Kent - C412","184 Kent - C413","184 Kent - C505",
+  "184 Kent - C507","184 Kent - C606","184 Kent - C609","184 Kent - C704",
+  "184 Kent - D201","184 Kent - D202","184 Kent - D301","184 Kent - D306",
+  "184 Kent - D307","184 Kent - D308","184 Kent - D310","184 Kent - D312",
+  "184 Kent - D314","184 Kent - D401","184 Kent - D409","184 Kent - D411",
+  "184 Kent - D412","184 Kent - D415","184 Kent - D417","184 Kent - D418",
+  "184 Kent - D502","184 Kent - D507","184 Kent - D510","184 Kent - D515",
+  "184 Kent - D518","184 Kent - D605","184 Kent - D609","184 Kent - D612",
+  "184 Kent - D613","184 Kent - D614","184 Kent - D617","184 Kent - D704",
+  "184 Kent - D705","184 Kent Avenue - B407","184 Kent Avenue - C211",
+  "184 Kent Avenue - D316","184 Kent, D611","184 Kent - B409",
+  "192 Bleecker Street - 4","21 India St, 31H","211 West 71st - 8B",
+  "212 N 9th - 6F","225 W 86th St - 603","230 Riverside - 5L",
+  "234 West 20th Street, 2A","235 8th Street","237 East 88th Street, 201",
+  "237 East 88th Street, 301","241 5th Avenue - 7C","250 Bowery - 6D",
+  "265 20th Street, 3L","299 W 12th St, 11A","299 W 12th St, 9L",
+  "302 West 12th Street - 1C","303 S 4th St, Apt 1","303 S 4th St, Apt 2",
+  "303 S 4th St, Apt 3","303 W 146th - 3R","305 West 18th Street, 6C",
+  "306 W 116th - 4A","308 West 30th Street - 10F","308 West 30th Street - 6D",
+  "308 West 30th Street - 7A","308 West 30th Street - 8A","308 West 30th Street - 9A",
+  "312 W 23rd - 1G","312 W 23rd - 4T","315 7th Ave - 15D","315 7th Ave - 16E",
+  "315 7th Ave - 8D","315 7th Ave - 8E","324 E 4th - 3A","324 E 4th - 3B",
+  "324 E 4th - 4A","324 E 4th - 4B","324 E 4th - 5A","324 E 4th - 5B",
+  "342 Bedford Ave, 4C","342 W 56th - 4A","342 W 56th - 5C","342 W 56th - 6B",
+  "349 W Broadway - 2","349 West Broadway, #9","351 S 3rd - 3A",
+  "36 W 35th street - 2D","36 W 35th street - 3B","36 W 35th street - 3F",
+  "36 W 35th street - 5C","36 W 35th street - 6C","36 W 35th street - 6D",
+  "36 W 35th Street, 4D","36 W 35th Street, 5D","36 W 35th Street, 6A",
+  "366 West 11th St, 7C","392 Central Park West, 8Y","400 Central Park West, 10T",
+  "405 Quincy Street, 2B","408 E 73rd - 2D","408 E 73rd street - 3B",
+  "421 E 50th St - 2R","435 Tompkins - 605","435 Tompkins, 302","435 Tompkins, 307",
+  "435 Tompkins, 406","435 Tompkins, 409","445 West 19th Street, 5B",
+  "447 West 45th Street, 4C","45 E 89th St, 30G","490 Van Buren St, 2B",
+  "500 4th Ave - 6M","502 9th Avenue - 7C","530 West End Ave - 10-1",
+  "55 E 9th St - 7P","58 Metropolitan - 3G","60 Broadway - 4R","60 E 8th St, 16F",
+  "60 East 8th Street 15F","62 North 3rd Street, 3B","63 Conselyea, B2",
+  "631 E 9th - 3A","664 Jefferson Avenue, 2B","754 E 6th St - 2A",
+  "77 Charlton St, S10E","77 Charlton St, S11E"
+];
+
+const TURNOVER = { '0-1': 2, '1-1': 2, '2-1': 3, '2-2': 3, '3-1': 4, '3-2': 4, '3-3': 5 };
+function getTurnover(bd, ba) { return TURNOVER[`${bd}-${ba}`] ?? 3; }
+let units = [];
+let activeFilter = 'all';
+let acIndex = -1;
+
+renderTable(); updateStats();
+
+function uid() { return Date.now() + Math.random(); }
+
+// ── AUTOCOMPLETE ──────────────────────────────────────────
+const nameInput = document.getElementById('add-name');
+const acList = document.getElementById('ac-list');
+
+nameInput.addEventListener('input', () => {
+  const q = nameInput.value.trim().toLowerCase();
+  acIndex = -1;
+  if (!q) { closeAC(); return; }
+  const matches = ALL_UNITS.filter(u => u.toLowerCase().includes(q)).slice(0, 8);
+  if (!matches.length) { closeAC(); return; }
+  acList.innerHTML = matches.map((m, i) => {
+    const hl = m.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'), '<mark>$1</mark>');
+    return `<div class="ac-item" data-val="${m}" onmousedown="pickAC('${m.replace(/'/g,"\\'")}')"> ${hl}</div>`;
+  }).join('');
+  acList.classList.add('open');
+});
+
+nameInput.addEventListener('keydown', e => {
+  const items = acList.querySelectorAll('.ac-item');
+  if (e.key === 'ArrowDown') { acIndex = Math.min(acIndex + 1, items.length - 1); highlightAC(items); e.preventDefault(); }
+  else if (e.key === 'ArrowUp') { acIndex = Math.max(acIndex - 1, 0); highlightAC(items); e.preventDefault(); }
+  else if (e.key === 'Enter') {
+    if (acIndex >= 0 && items[acIndex]) { pickAC(items[acIndex].dataset.val); e.preventDefault(); }
+    else { closeAC(); }
+  }
+  else if (e.key === 'Escape') { closeAC(); }
+});
+
+nameInput.addEventListener('blur', () => setTimeout(closeAC, 150));
+
+function highlightAC(items) {
+  items.forEach((el, i) => el.classList.toggle('active', i === acIndex));
+  if (items[acIndex]) items[acIndex].scrollIntoView({ block: 'nearest' });
+}
+
+function pickAC(val) {
+  nameInput.value = val;
+  closeAC();
+  document.getElementById('add-date').focus();
+}
+
+function closeAC() {
+  acList.classList.remove('open');
+  acList.innerHTML = '';
+  acIndex = -1;
+}
+
+// ── ADD UNIT ──────────────────────────────────────────────
+function addUnit() {
+  const name = nameInput.value.trim();
+  const leaseEnd = document.getElementById('add-date').value;
+  const sizeVal = document.getElementById('add-size').value;
+  if (!name) { alert('Please enter a unit name.'); return; }
+  if (!leaseEnd) { alert('Please select a lease end date.'); return; }
+  const [bd, ba] = sizeVal.split('-').map(Number);
+  units.push({ id: uid(), name, leaseEnd, bd, ba });
+  nameInput.value = '';
+  document.getElementById('add-date').value = '';
+  closeAC();
+  renderTable(); updateStats();
+}
+
+// ── DATE HELPERS ──────────────────────────────────────────
+function addBusinessDays(dateStr, days) {
+  let d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + 1); // day after lease ends = first turnover day
+  let added = 0;
+  while (added < days) {
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) added++;
+    if (added < days) d.setDate(d.getDate() + 1);
+  }
+  // move-in is the NEXT business day after turnover ends
+  d.setDate(d.getDate() + 1);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return d;
+}
+function fmtS(d) { return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }); }
+function fmtLE(s) { return new Date(s + 'T00:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }); }
+
+// ── FILTER / SEARCH ───────────────────────────────────────
+function setFilter(btn) {
+  document.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeFilter = btn.dataset.f;
+  renderTable();
+}
+
+function removeUnit(id) {
+  units = units.filter(u => u.id !== id);
+  renderTable(); updateStats();
+}
+
+// ── RENDER ────────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('tbl-body');
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const rows = units
+    .filter(u => (activeFilter === 'all' || String(u.bd) === activeFilter) && u.name.toLowerCase().includes(q))
+    .sort((a, b) => a.leaseEnd.localeCompare(b.leaseEnd));
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><p>No units found.</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(u => {
+    const t = getTurnover(u.bd, u.ba);
+    const mi = addBusinessDays(u.leaseEnd, t);
+    const miStr = fmtS(mi);
+    const leStr = fmtLE(u.leaseEnd);
+    const sl = u.bd === 0 ? '0bd/1ba' : `${u.bd}bd/${u.ba}ba`;
+    const bc = u.bd === 0 ? 'badge-studio' : u.bd === 1 ? 'badge-1bd' : u.bd === 2 ? 'badge-2bd' : 'badge-3bd';
+    const bt = u.bd === 0 ? 'Studio' : sl.toUpperCase();
+    const esc = s => s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<tr>
+      <td><div class="unit-name">${u.name}</div></td>
+      <td><span class="badge ${bc}">${bt}</span></td>
+      <td><span class="lcol">${leStr}</span></td>
+      <td><span class="tcol">${t} days</span></td>
+      <td><span class="movein">${miStr}</span></td>
+      <td><button class="copy-btn" onclick="navigator.clipboard.writeText('${esc(u.name)} | ${sl} | Lease ends: ${leStr} | Move-in: ${miStr}').catch(()=>{});this.textContent='Copied';this.classList.add('ok');setTimeout(()=>{this.textContent='Copy';this.classList.remove('ok')},1500)">Copy</button></td>
+      <td><button class="del-btn" onclick="removeUnit(${u.id})">&times;</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function updateStats() {
+  const n = units.length;
+  const total = 279;
+  document.getElementById('st-total').textContent = n;
+  document.getElementById('st-studio').textContent = units.filter(u => u.bd === 0).length;
+  document.getElementById('st-1bd').textContent = units.filter(u => u.bd === 1).length;
+  document.getElementById('st-2bd').textContent = units.filter(u => u.bd >= 2).length;
+  document.getElementById('hdr-counter').textContent = `${n} / ${total} complete`;
+  document.getElementById('hdr-fill').style.width = Math.min(100, (n / total) * 100) + '%';
+}
+</script>
+</body>
+</html>
