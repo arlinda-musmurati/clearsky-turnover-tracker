@@ -247,6 +247,28 @@
     <div class="stat-card"><div class="stat-lbl">2–3 Bed</div><div class="stat-val" id="st-2bd">0</div></div>
   </div>
 
+  <!-- BATCH IMPORT -->
+  <div id="batch-section" style="display:none; background:#fff; border:1px solid var(--border); padding:16px; margin-bottom:12px;">
+    <div style="font-size:9px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted2);margin-bottom:10px;">Batch import</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.8;">
+      <strong style="color:var(--muted2);">Option 1 — Paste from Leasing + Renewals 2026 spreadsheet:</strong><br>
+      Select the units from the spreadsheet, copy, and paste directly here.<br><br>
+      <strong style="color:var(--muted2);">Option 2 — Manual format, one per line:</strong><br>
+      <code style="background:var(--bg);padding:2px 6px;font-size:10px;">Unit name, MM/DD/YYYY, bd-ba</code><br>
+      <code style="background:var(--bg);padding:2px 6px;font-size:10px;">184 Kent - B504, 05/31/2026, 1-1</code>
+    </div>
+    <textarea id="batch-input" style="width:100%;height:140px;font-family:monospace;font-size:12px;padding:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);outline:none;resize:vertical;margin-bottom:10px;" placeholder="Paste here..."></textarea>
+    <div style="display:flex;gap:8px;">
+      <button class="add-btn" onclick="parseBatch()">Import all →</button>
+      <button class="add-btn" style="background:var(--bg);color:var(--muted2);border:1px solid var(--border);" onclick="toggleBatch()">Cancel</button>
+    </div>
+    <div id="batch-error" style="font-size:11px;color:#dc2626;margin-top:8px;display:none;"></div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+    <button class="add-btn" style="background:var(--bg);color:var(--muted2);border:1px solid var(--border);font-size:9px;" onclick="toggleBatch()">+ Batch import</button>
+  </div>
+
   <div class="add-row">
     <div class="add-field name-field">
       <label>Unit name</label>
@@ -382,6 +404,61 @@ let acIndex = -1;
 renderTable(); updateStats();
 
 function uid() { return Date.now() + Math.random(); }
+
+function toggleBatch() {
+  const s = document.getElementById('batch-section');
+  s.style.display = s.style.display === 'none' ? 'block' : 'none';
+  document.getElementById('batch-error').style.display = 'none';
+  document.getElementById('batch-input').value = '';
+}
+
+function parseBatch() {
+  const raw = document.getElementById('batch-input').value.trim();
+  const errEl = document.getElementById('batch-error');
+  if (!raw) return;
+  let added = 0, failed = 0;
+
+  // Detect AppFolio format (contains "Lease End Date:")
+  if (/Lease End Date:/i.test(raw)) {
+    // Split the whole blob on "Lease End Date:" — each chunk starts with date+size
+    const chunks = raw.split(/Lease End Date:\s*/i).filter(s => s.trim());
+    // First element before first "Lease End Date:" is discarded if empty
+    // Each chunk: "MM/DD/YYYYXbd/Xba[next unit name...]"
+    // But we also need the unit names — they come BEFORE each "Lease End Date:"
+    // So split differently: find all occurrences
+    const pattern = /(.+?)Lease End Date:\s*(\d{2}\/\d{2}\/\d{4})\s*(\d+bd\/\d+ba)/gi;
+    let match;
+    while ((match = pattern.exec(raw)) !== null) {
+      const name = match[1].trim();
+      const d = new Date(match[2]);
+      const sizeM = match[3].match(/(\d+)bd\/(\d+)ba/i);
+      if (!name || isNaN(d) || !sizeM) { failed++; continue; }
+      units.push({ id: uid(), name, leaseEnd: d.toISOString().split('T')[0], bd: parseInt(sizeM[1]), ba: parseInt(sizeM[2]) });
+      added++;
+    }
+    if (added === 0 && failed === 0) failed = chunks.length;
+  } else {
+    // Manual CSV format: Unit name, MM/DD/YYYY, bd-ba
+    raw.split('\n').forEach(line => {
+      line = line.trim();
+      if (!line) return;
+      const parts = line.split(',').map(s => s.trim());
+      if (parts.length < 3) { failed++; return; }
+      const [name, dateRaw, sizeRaw] = parts;
+      const d = new Date(dateRaw);
+      if (isNaN(d)) { failed++; return; }
+      const sizeM = sizeRaw.match(/(\d+)[-\/](\d+)/);
+      if (!sizeM) { failed++; return; }
+      units.push({ id: uid(), name, leaseEnd: d.toISOString().split('T')[0], bd: parseInt(sizeM[1]), ba: parseInt(sizeM[2]) });
+      added++;
+    });
+  }
+
+  if (added) { renderTable(); updateStats(); document.getElementById('batch-section').style.display = 'none'; document.getElementById('batch-input').value = ''; errEl.style.display = 'none'; }
+  if (failed) { errEl.textContent = `${failed} line(s) could not be parsed.`; errEl.style.display = 'block'; }
+  if (!added && !failed) { errEl.textContent = 'Nothing found. Try pasting again.'; errEl.style.display = 'block'; }
+}
+
 
 // ── AUTOCOMPLETE ──────────────────────────────────────────
 const nameInput = document.getElementById('add-name');
