@@ -282,13 +282,13 @@
     <div class="add-field size-field">
       <label>Size</label>
       <select id="add-size">
-        <option value="0-1">Studio (0bd/1ba) · 2 days</option>
-        <option value="1-1">1 Bed / 1 Bath · 2 days</option>
-        <option value="2-1">2 Bed / 1 Bath · 3 days</option>
-        <option value="2-2">2 Bed / 2 Bath · 3 days</option>
-        <option value="3-1">3 Bed / 1 Bath · 4 days</option>
-        <option value="3-2">3 Bed / 2 Bath · 4 days</option>
-        <option value="3-3">3 Bed / 3 Bath · 5 days</option>
+        <option value="0-1">Studio (0bd/1ba) · 3 days</option>
+        <option value="1-1">1 Bed / 1 Bath · 3 days</option>
+        <option value="2-1">2 Bed / 1 Bath · 4 days</option>
+        <option value="2-2">2 Bed / 2 Bath · 4 days</option>
+        <option value="3-1">3 Bed / 1 Bath · 5 days</option>
+        <option value="3-2">3 Bed / 2 Bath · 5 days</option>
+        <option value="3-3">3 Bed / 3 Bath · 6 days</option>
       </select>
     </div>
     <button class="add-btn" onclick="addUnit()">Add unit →</button>
@@ -395,7 +395,7 @@ const ALL_UNITS = [
   "77 Charlton St, S10E","77 Charlton St, S11E"
 ];
 
-const TURNOVER = { '0-1': 2, '1-1': 2, '2-1': 3, '2-2': 3, '3-1': 4, '3-2': 4, '3-3': 5 };
+const TURNOVER = { '0-1': 3, '1-1': 3, '2-1': 4, '2-2': 4, '3-1': 5, '3-2': 5, '3-3': 6 };
 function getTurnover(bd, ba) { return TURNOVER[`${bd}-${ba}`] ?? 3; }
 let units = [];
 let activeFilter = 'all';
