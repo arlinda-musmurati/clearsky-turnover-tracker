@@ -252,7 +252,7 @@
     <div style="font-size:9px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted2);margin-bottom:10px;">Batch import</div>
     <div style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.8;">
       <strong style="color:var(--muted2);">Option 1 — Paste from Leasing + Renewals 2026 spreadsheet:</strong><br>
-      Select the units from the spreadsheet, copy, and paste directly here.<br><br>
+      Select the full rows for the units you want (Apartment through Size columns), copy, and paste directly here — no reformatting needed. Month header rows (e.g. "July") are skipped automatically.<br><br>
       <strong style="color:var(--muted2);">Option 2 — Manual format, one per line:</strong><br>
       <code style="background:var(--bg);padding:2px 6px;font-size:10px;">Unit name, MM/DD/YYYY, bd-ba</code><br>
       <code style="background:var(--bg);padding:2px 6px;font-size:10px;">184 Kent - B504, 05/31/2026, 1-1</code>
@@ -412,14 +412,66 @@ function toggleBatch() {
   document.getElementById('batch-input').value = '';
 }
 
+// Spreadsheet columns (Leasing + Renewals 2026 - Turnovers):
+// Apartment | Lease End Date | Lease Start Date | Pre-move out Inspection |
+// Turnover Estimate Start Date | Turnover Estimate Days | Turnover Completion Estimate |
+// Set of Keys | Size | Broker | Status | Details of Work | Vendor | Key Notes
+// When a user selects those cells in Google Sheets/Excel and copies, the browser
+// pastes them as tab-separated text — that's what this parser handles.
+const MONTH_NAMES = ['january','february','march','april','may','june','july','august',
+  'september','october','november','december'];
+
+function parseSpreadsheetPaste(raw) {
+  let added = 0, failed = 0, skipped = 0;
+  raw.split('\n').forEach(line => {
+    if (!line.trim()) return;
+    const cols = line.split('\t').map(c => c.trim());
+    const nameRaw = cols[0];
+
+    // Skip blank/header/month-separator rows quietly (not counted as failures)
+    if (!nameRaw) { skipped++; return; }
+    if (/^apartment$/i.test(nameRaw)) { skipped++; return; }
+    if (MONTH_NAMES.includes(nameRaw.toLowerCase())) { skipped++; return; }
+
+    // Lease End Date lives in column 2, but often has trailing notes
+    // e.g. "7/31/2026 - move out 7/15" or "7/31/2026 - Moved out" — pull the date out of it.
+    const leaseEndCol = cols[1] || '';
+    const dateMatch = leaseEndCol.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+    if (!dateMatch) { failed++; return; } // e.g. "vacant" with no date yet
+
+    const d = new Date(`${dateMatch[1]}/${dateMatch[2]}/${dateMatch[3]}`);
+    if (isNaN(d)) { failed++; return; }
+
+    // Size (e.g. "1bd/1ba", "2bd/1bath") can be searched for anywhere in the row
+    // rather than relying on an exact column index, since notes shift things around.
+    const sizeMatch = line.match(/(\d+)\s*bd\s*\/\s*(\d+)\s*b(?:a|ath)/i);
+    if (!sizeMatch) { failed++; return; }
+
+    const name = nameRaw.replace(/\s*-\s*furnished\s*$/i, '').trim();
+    units.push({
+      id: uid(),
+      name,
+      leaseEnd: d.toISOString().split('T')[0],
+      bd: parseInt(sizeMatch[1]),
+      ba: parseInt(sizeMatch[2])
+    });
+    added++;
+  });
+  return { added, failed, skipped };
+}
+
 function parseBatch() {
   const raw = document.getElementById('batch-input').value.trim();
   const errEl = document.getElementById('batch-error');
   if (!raw) return;
-  let added = 0, failed = 0;
+  let added = 0, failed = 0, skipped = 0;
 
-  // Detect AppFolio format (contains "Lease End Date:")
-  if (/Lease End Date:/i.test(raw)) {
+  // Detect a spreadsheet paste (tab-separated columns) FIRST — this is what
+  // copy/pasting directly from the Leasing + Renewals sheet produces.
+  if (raw.includes('\t')) {
+    const result = parseSpreadsheetPaste(raw);
+    added = result.added; failed = result.failed; skipped = result.skipped;
+  } else if (/Lease End Date:/i.test(raw)) {
     // Split the whole blob on "Lease End Date:" — each chunk starts with date+size
     const chunks = raw.split(/Lease End Date:\s*/i).filter(s => s.trim());
     // First element before first "Lease End Date:" is discarded if empty
@@ -455,8 +507,18 @@ function parseBatch() {
   }
 
   if (added) { renderTable(); updateStats(); document.getElementById('batch-section').style.display = 'none'; document.getElementById('batch-input').value = ''; errEl.style.display = 'none'; }
-  if (failed) { errEl.textContent = `${failed} line(s) could not be parsed.`; errEl.style.display = 'block'; }
-  if (!added && !failed) { errEl.textContent = 'Nothing found. Try pasting again.'; errEl.style.display = 'block'; }
+  if (failed) {
+    let msg = `${failed} line(s) could not be parsed (missing a date or bd/ba size).`;
+    if (skipped) msg += ` ${skipped} header/section row(s) were skipped automatically.`;
+    errEl.textContent = msg;
+    errEl.style.color = '#dc2626';
+    errEl.style.display = 'block';
+  } else if (skipped && added) {
+    errEl.textContent = `Imported ${added} unit(s). ${skipped} header/section row(s) were skipped automatically.`;
+    errEl.style.color = 'var(--green)';
+    errEl.style.display = 'block';
+  }
+  if (!added && !failed) { errEl.textContent = 'Nothing found. Try pasting again.'; errEl.style.color = '#dc2626'; errEl.style.display = 'block'; }
 }
 
 
